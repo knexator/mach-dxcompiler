@@ -37,7 +37,7 @@ pub fn build(b: *Build) !void {
             const cache_dir = binaryCacheDirPath(b, target.result, optimize) catch |err| std.debug.panic("unable to construct binary cache dir path: {}", .{err});
             linkage.addLibraryPath(.{ .cwd_relative = cache_dir });
             linkage.linkSystemLibrary("machdxcompiler");
-            linkMachDxcDependenciesModule(&linkage.root_module);
+            linkMachDxcDependenciesModule(linkage.root_module);
 
             // not entirely sure this will work
             if (build_shared) {
@@ -64,7 +64,7 @@ pub fn build(b: *Build) !void {
                     "-fms-extensions", // __uuidof and friends (on non-windows targets)
                 },
             });
-            if (target.result.os.tag != .windows) lib.defineCMacro("HAVE_DLFCN_H", "1");
+            if (target.result.os.tag != .windows) lib.root_module.addCMacro("HAVE_DLFCN_H", "1");
 
             // The Windows 10 SDK winrt/wrl/client.h is incompatible with clang due to #pragma pack usages
             // (unclear why), so instead we use the wrl/client.h headers from https://github.com/ziglang/zig/tree/225fe6ddbfae016395762850e0cd5c51f9e7751c/lib/libc/include/any-windows-any
@@ -151,7 +151,7 @@ pub fn build(b: *Build) !void {
 
             // Link lazy-loaded SPIRV-Tools
             if (build_spirv) {
-                lib.defineCMacro("ENABLE_SPIRV_CODEGEN", "");
+                lib.root_module.addCMacro("ENABLE_SPIRV_CODEGEN", "");
 
                 // Add clang SPIRV tooling sources
                 lib.addCSourceFiles(.{
@@ -182,18 +182,18 @@ pub fn build(b: *Build) !void {
                 .root = dxc_sources.path("."),
             });
 
-            if (target.result.abi != .msvc) lib.defineCMacro("NDEBUG", ""); // disable assertions
+            if (target.result.abi != .msvc) lib.root_module.addCMacro("NDEBUG", ""); // disable assertions
             if (target.result.os.tag == .windows) {
-                lib.defineCMacro("LLVM_ON_WIN32", "1");
-                if (target.result.abi == .msvc) lib.defineCMacro("CINDEX_LINKAGE", "");
+                lib.root_module.addCMacro("LLVM_ON_WIN32", "1");
+                if (target.result.abi == .msvc) lib.root_module.addCMacro("CINDEX_LINKAGE", "");
                 lib.linkSystemLibrary("version");
             } else {
-                lib.defineCMacro("LLVM_ON_UNIX", "1");
+                lib.root_module.addCMacro("LLVM_ON_UNIX", "1");
             }
 
             if (build_shared) {
-                lib.defineCMacro("MACH_DXC_C_SHARED_LIBRARY", "");
-                lib.defineCMacro("MACH_DXC_C_IMPLEMENTATION", "");
+                lib.root_module.addCMacro("MACH_DXC_C_SHARED_LIBRARY", "");
+                lib.root_module.addCMacro("MACH_DXC_C_IMPLEMENTATION", "");
             }
 
             linkMachDxcDependencies(lib);
@@ -217,9 +217,9 @@ pub fn build(b: *Build) !void {
                     .file = dxc_sources.path("tools/clang/tools/dxc/dxcmain.cpp"),
                     .flags = &.{"-std=c++17"},
                 });
-                dxc_exe.defineCMacro("NDEBUG", ""); // disable assertions
+                dxc_exe.root_module.addCMacro("NDEBUG", ""); // disable assertions
 
-                if (target.result.os.tag != .windows) dxc_exe.defineCMacro("HAVE_DLFCN_H", "1");
+                if (target.result.os.tag != .windows) dxc_exe.root_module.addCMacro("HAVE_DLFCN_H", "1");
                 dxc_exe.addIncludePath(dxc_sources.path("tools/clang/tools"));
                 dxc_exe.addIncludePath(dxc_sources.path("include"));
                 addConfigHeaders(b, dxc_exe);
